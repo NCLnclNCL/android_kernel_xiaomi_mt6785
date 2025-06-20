@@ -1051,7 +1051,7 @@ out_ksu_try_umount:
 	// try umount ksu temp path
 	ksu_try_umount("/debug_ramdisk", false, MNT_DETACH);
 	ksu_try_umount("/sbin", false, MNT_DETACH);
-
+#endif
 
 	return 0;
 }
