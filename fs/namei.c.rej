@@ -1,0 +1,98 @@
+--- fs/namei.c
++++ fs/namei.c
+@@ -37,6 +37,9 @@
+ #include <linux/hash.h>
+ #include <linux/init_task.h>
+ #include <asm/uaccess.h>
++#if defined(CONFIG_KSU_SUSFS_SUS_PATH) || defined(CONFIG_KSU_SUSFS_OPEN_REDIRECT)
++#include <linux/susfs_def.h>
++#endif
+ 
+ #include "internal.h"
+ #include "mount.h"
+@@ -1684,6 +1711,12 @@ static struct dentry *__lookup_hash(struct qstr *name,
+ 	struct dentry *dentry;
+ 
+ 	dentry = lookup_dcache(name, base, flags, &need_lookup);
++#ifdef CONFIG_KSU_SUSFS_SUS_PATH
++	if (!IS_ERR(dentry) && dentry->d_inode && unlikely(dentry->d_inode->i_state & INODE_STATE_SUS_PATH) && likely(current->susfs_task_state & TASK_STRUCT_NON_ROOT_USER_APP_PROC)) {
++		dput(dentry);
++		return ERR_PTR(-ENOENT);
++	}
++#endif
+ 	if (!need_lookup)
+ 		return dentry;
+ 
+@@ -2792,7 +2841,19 @@ static int may_delete(struct vfsmount *mnt, struct inode *dir, struct dentry *vi
+  */
+ static inline int may_create(struct vfsmount *mnt, struct inode *dir, struct dentry *child)
+ {
++#ifdef CONFIG_KSU_SUSFS_SUS_PATH
++	int error;
++#endif
+ 	audit_inode_child(dir, child, AUDIT_TYPE_CHILD_CREATE);
++#ifdef CONFIG_KSU_SUSFS_SUS_PATH
++	if (child->d_inode && unlikely(child->d_inode->i_state & INODE_STATE_SUS_PATH) && likely(current->susfs_task_state & TASK_STRUCT_NON_ROOT_USER_APP_PROC)) {
++		error = inode_permission2(mnt, dir, MAY_WRITE | MAY_EXEC);
++		if (error) {
++			return error;
++		}
++		return -ENOENT;
++	}
++#endif
+ 	if (child->d_inode)
+ 		return -EEXIST;
+ 	if (IS_DEADDIR(dir))
+@@ -2968,7 +3035,20 @@ static inline int open_to_namei_flags(int flag)
+ 
+ static int may_o_create(struct path *dir, struct dentry *dentry, umode_t mode)
+ {
++#ifdef CONFIG_KSU_SUSFS_SUS_PATH
++	int error;
++
++	if (dentry->d_inode && unlikely(dentry->d_inode->i_state & INODE_STATE_SUS_PATH) && likely(current->susfs_task_state & TASK_STRUCT_NON_ROOT_USER_APP_PROC)) {
++		error = inode_permission2(dir->mnt, dir->dentry->d_inode, MAY_WRITE | MAY_EXEC);
++		if (error) {
++			return error;
++		}
++		return -ENOENT;
++	}
++	error = security_path_mknod(dir, dentry, mode, 0);
++#else
+ 	int error = security_path_mknod(dir, dentry, mode, 0);
++#endif
+ 	if (error)
+ 		return error;
+ 
+@@ -3171,8 +3251,17 @@ static int lookup_open(struct nameidata *nd, struct path *path,
+ 
+ 	/* Cached positive dentry: will open in f_op->open */
+ 	if (!need_lookup && dentry->d_inode)
++#ifdef CONFIG_KSU_SUSFS_SUS_PATH
++	{
++		if (unlikely(dentry->d_inode->i_state & INODE_STATE_SUS_PATH) && likely(current->susfs_task_state & TASK_STRUCT_NON_ROOT_USER_APP_PROC)) {
++			dput(dentry);
++			return -ENOENT;
++		}
+ 		goto out_no_open;
+-
++	}
++#else
++		goto out_no_open;
++#endif
+ 	if ((nd->flags & LOOKUP_OPEN) && dir_inode->i_op->atomic_open) {
+ 		return atomic_open(nd, dentry, path, file, op, got_write,
+ 				   need_lookup, opened);
+@@ -3184,6 +3273,12 @@ static int lookup_open(struct nameidata *nd, struct path *path,
+ 		dentry = lookup_real(dir_inode, dentry, nd->flags);
+ 		if (IS_ERR(dentry))
+ 			return PTR_ERR(dentry);
++#ifdef CONFIG_KSU_SUSFS_SUS_PATH
++		if (unlikely(dentry->d_inode->i_state & INODE_STATE_SUS_PATH) && likely(current->susfs_task_state & TASK_STRUCT_NON_ROOT_USER_APP_PROC)) {
++			dput(dentry);
++			return -ENOENT;
++		}
++#endif
+ 	}
+ 
+ 	/* Negative dentry, just create the file */
