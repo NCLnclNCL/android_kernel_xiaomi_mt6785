@@ -942,6 +942,7 @@ CHECKFLAGS     += $(NOSTDINC_FLAGS)
 
 # warn about C99 declaration after statement
 #KBUILD_CFLAGS += $(call cc-option,-Wdeclaration-after-statement,)
+KBUILD_CFLAGS += $(call cc-disable-warning, trigraphs)
 KBUILD_CFLAGS += $(call cc-disable-warning, default-const-init-field-unsafe)
 KBUILD_CFLAGS += $(call cc-disable-warning, default-const-init-var-unsafe)
 # disable pointer signed / unsigned warnings in gcc 4.0
