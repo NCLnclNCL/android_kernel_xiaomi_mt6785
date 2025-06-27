@@ -998,6 +998,7 @@ KBUILD_CFLAGS   += $(call cc-option,-fconserve-stack)
 # Require designated initializers for all marked structures
 #KBUILD_CFLAGS   += $(call cc-option,-Werror=designated-init)
 KBUILD_CFLAGS += $(call cc-disable-warning, deprecated-non-prototype)
+KBUILD_CFLAGS += $(call cc-disable-warning, single-bit-bitfield-constant-conversion)
 KBUILD_CFLAGS += $(call cc-disable-warning, default-const-init-field-unsafe)
 KBUILD_CFLAGS += $(call cc-disable-warning, default-const-init-var-unsafe)
 # change __FILE__ to the relative path from the srctree
